@@ -43,10 +43,12 @@ typedef enum {
 /** Lidar Type ID */
 typedef enum {
   TYPE_TOF = 0,/**< TG TX LiDAR.*/
-  TYPE_TRIANGLE  = 1,/**< G4. G6. G2 LiDAR.*/
+  TYPE_TRIANGLE = 1,/**< G4. G6. G2 LiDAR.*/
   TYPE_TOF_NET = 2,/**< T15 LiDAR.*/
   TYPE_GS = 3, //GS系列雷达（目前只有GS2）
-  TYPE_GS1 = 4, //GS1雷达
+  TYPE_SCL = 4, //SCL雷达
+  TYPE_SDM = 5, //SDM15单点雷达
+  TYPE_DTS = 6, //SDM18单点雷达
   TYPE_Tail,
 } LidarTypeID;
 
@@ -87,7 +89,7 @@ typedef struct {
   void *lidar;///< CYdLidar instance
 } YDLidar;
 
-typedef enum  {
+typedef enum {
   NoError = 0,
   DeviceNotFoundError,
   PermissionError,
