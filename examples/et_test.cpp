@@ -44,7 +44,7 @@ using namespace ydlidar;
 #endif
 
 /**
- * @brief tof Lidar test
+ * @brief etlidar test
  * @param argc
  * @param argv
  * @return
@@ -68,89 +68,8 @@ int main(int argc, char *argv[]) {
   std::string port;
   ydlidar::os_init();
 
-  std::map<std::string, std::string> ports = ydlidar::lidarPortList();
-  std::map<std::string, std::string>::iterator it;
-
-  if (ports.size() == 1) {
-    port = ports.begin()->second;
-  } else {
-    int id = 0;
-
-    for (it = ports.begin(); it != ports.end(); it++) {
-      printf("%d. %s\n", id, it->first.c_str());
-      id++;
-    }
-
-    if (ports.empty()) {
-      printf("Not Lidar was detected. Please enter the lidar serial port:");
-      std::cin >> port;
-    } else {
-      while (ydlidar::os_isOk()) {
-        printf("Please select the lidar port:");
-        std::string number;
-        std::cin >> number;
-
-        if ((size_t)atoi(number.c_str()) >= ports.size()) {
-          continue;
-        }
-
-        it = ports.begin();
-        id = atoi(number.c_str());
-
-        while (id) {
-          id--;
-          it++;
-        }
-
-        port = it->second;
-        break;
-      }
-    }
-  }
-
-  int baudrate = 230400;
-  std::map<int, int> baudrateList;
-  baudrateList[0] = 115200;
-  baudrateList[1] = 230400;
-  baudrateList[2] = 512000;
-
-  printf("Baudrate:\n");
-
-  for (std::map<int, int>::iterator it = baudrateList.begin();
-       it != baudrateList.end(); it++) {
-    printf("%d. %d\n", it->first, it->second);
-  }
-
-  while (ydlidar::os_isOk()) {
-    printf("Please select the lidar baudrate:");
-    std::string number;
-    std::cin >> number;
-
-    if ((size_t)atoi(number.c_str()) > baudrateList.size()) {
-      continue;
-    }
-
-    baudrate = baudrateList[atoi(number.c_str())];
-    break;
-  }
-
-  if (!ydlidar::os_isOk()) {
-    return 0;
-  }
-
-  bool isSingleChannel = false;
-  std::string input_channel;
-  printf("Whether the Lidar is one-way communication[yes/no]:");
-  std::cin >> input_channel;
-  std::transform(input_channel.begin(), input_channel.end(),
-                 input_channel.begin(),
-  [](unsigned char c) {
-    return std::tolower(c);  // correct
-  });
-
-  if (input_channel.find("y") != std::string::npos) {
-    isSingleChannel = true;
-  }
+  printf("Please select the lidar IP:");
+  std::cin >> port;
 
   if (!ydlidar::os_isOk()) {
     return 0;
@@ -158,19 +77,19 @@ int main(int argc, char *argv[]) {
 
   std::string input_frequency;
 
-  float frequency = 8.0f;
+  float frequency = 20.0;
 
-  while (ydlidar::os_isOk() && !isSingleChannel) {
-    printf("Please enter the lidar scan frequency[3-15.7]:");
+  while (ydlidar::os_isOk()) {
+    printf("Please enter the lidar scan frequency[10-30]:");
     std::cin >> input_frequency;
     frequency = atof(input_frequency.c_str());
 
-    if (frequency <= 15.7 && frequency >= 3.0) {
+    if (frequency <= 30 && frequency >= 10.0) {
       break;
     }
 
     fprintf(stderr,
-            "Invalid scan frequency,The scanning frequency range is 3 to 15.7 HZ, Please re-enter.\n");
+            "Invalid scan frequency,The scanning frequency range is 10 to 30 HZ, Please re-enter.\n");
   }
 
   if (!ydlidar::os_isOk()) {
@@ -179,7 +98,7 @@ int main(int argc, char *argv[]) {
 
 
 
-  /// instance
+
   CYdLidar laser;
   //////////////////////string property/////////////////
   /// lidar port
@@ -192,15 +111,16 @@ int main(int argc, char *argv[]) {
 
   //////////////////////int property/////////////////
   /// lidar baudrate
-  laser.setlidaropt(LidarPropSerialBaudrate, &baudrate, sizeof(int));
+  int optval = 8000;
+  laser.setlidaropt(LidarPropSerialBaudrate, &optval, sizeof(int));
   /// tof lidar
-  int optval = TYPE_TOF;
+  optval = TYPE_TOF_NET;
   laser.setlidaropt(LidarPropLidarType, &optval, sizeof(int));
   /// device type
-  optval = YDLIDAR_TYPE_SERIAL;
+  optval = YDLIDAR_TYPE_TCP;
   laser.setlidaropt(LidarPropDeviceType, &optval, sizeof(int));
   /// sample rate
-  optval = isSingleChannel ? 4 : 20;
+  optval = 20;
   laser.setlidaropt(LidarPropSampleRate, &optval, sizeof(int));
   /// abnormal count
   optval = 4;
@@ -217,12 +137,13 @@ int main(int argc, char *argv[]) {
   b_optvalue = true;
   laser.setlidaropt(LidarPropAutoReconnect, &b_optvalue, sizeof(bool));
   /// one-way communication
-  b_optvalue = isSingleChannel;
+  b_optvalue = false;
   laser.setlidaropt(LidarPropSingleChannel, &b_optvalue, sizeof(bool));
   /// intensity
-  b_optvalue = false;
+  b_optvalue = true;
   laser.setlidaropt(LidarPropIntenstiy, &b_optvalue, sizeof(bool));
   /// Motor DTR
+  b_optvalue = false;
   laser.setlidaropt(LidarPropSupportMotorDtrCtrl, &b_optvalue, sizeof(bool));
 
   //////////////////////float property/////////////////
@@ -238,25 +159,23 @@ int main(int argc, char *argv[]) {
   f_optvalue = 0.05f;
   laser.setlidaropt(LidarPropMinRange, &f_optvalue, sizeof(float));
   /// unit: Hz
-  laser.setlidaropt(LidarPropScanFrequency, &frequency, sizeof(float));
+  f_optvalue = frequency;
+  laser.setlidaropt(LidarPropScanFrequency, &f_optvalue, sizeof(float));
 
-  /// initialize SDK and LiDAR.
   bool ret = laser.initialize();
 
-  if (ret) {//success
-    /// Start the device scanning routine which runs on a separate thread and enable motor.
+  if (ret) {
     ret = laser.turnOn();
-  } else {//failed
+  }  else {
     fprintf(stderr, "%s\n", laser.DescribeError());
     fflush(stderr);
   }
 
   LaserScan scan;
 
-  while (ret && ydlidar::os_isOk()) {/// Turn On success and loop
-
+  while (ret && ydlidar::os_isOk()) {
     if (laser.doProcessSimple(scan)) {
-      fprintf(stdout, "Scan received[%llu]: %u ranges is [%f]Hz\n",
+      fprintf(stdout, "Scan received[%lu]: %u ranges is [%f]Hz\n",
               scan.stamp,
               (unsigned int)scan.points.size(), 1.0 / scan.config.scan_time);
       fflush(stdout);
@@ -266,9 +185,10 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  /// Stop the device scanning thread and disable motor.
-  laser.turnOff();
-  /// Uninitialize the SDK and Disconnect the LiDAR.
+  if (ret) {
+    laser.turnOff();
+  }
+
   laser.disconnecting();
 
   return 0;

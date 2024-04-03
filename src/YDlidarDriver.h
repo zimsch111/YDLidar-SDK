@@ -171,6 +171,9 @@ class YDlidarDriver : public DriverInterface {
    */
   virtual result_t getDeviceInfo(device_info &info,
                                  uint32_t timeout = DEFAULT_TIMEOUT);
+  
+  //获取设备信息
+  virtual bool getDeviceInfoEx(device_info &info, int type=EPT_Module);
 
   /**
    * @brief Turn on scanning \n
@@ -391,20 +394,6 @@ class YDlidarDriver : public DriverInterface {
   result_t stopScan(uint32_t timeout = DEFAULT_TIMEOUT);
 
   /**
-   * @brief check single-channel lidar device information
-   * @param recvBuffer  LiDAR Data buffer
-   * @param byte        current byte
-   * @param recvPos     current recived pos
-   * @param recvSize    Buffer size
-   * @param pos         Device Buffer pos
-   * @return status
-   * @retval RESULT_OK       success
-   * @retval RESULT_FAILE    failed
-   */
-  result_t checkDeviceInfo(uint8_t *recvBuffer, uint8_t byte, int recvPos,
-                           int recvSize, int pos);
-
-  /**
    * @brief waiting device information
    * @param timeout timeout
    * @return status
@@ -419,7 +408,7 @@ class YDlidarDriver : public DriverInterface {
    * @param timeout
    * @return
    */
-  result_t parseResponseHeader(uint8_t  *packageBuffer,
+  result_t parseResponseHeader(uint8_t *packageBuffer,
                                uint32_t timeout = DEFAULT_TIMEOUT);
 
   /**
@@ -428,8 +417,12 @@ class YDlidarDriver : public DriverInterface {
    * @param timeout
    * @return
    */
-  result_t parseResponseScanData(uint8_t  *packageBuffer,
+  result_t parseResponseScanData(uint8_t *packageBuffer,
                                  uint32_t timeout = DEFAULT_TIMEOUT);
+
+  //解析时间戳数据（云鲸雷达）
+  bool parseStampData(uint32_t timeout = DEFAULT_TIMEOUT / 10);
+
   /**
   * @brief Unpacking \n
   * @param[in] node lidar point information
@@ -584,14 +577,19 @@ class YDlidarDriver : public DriverInterface {
    */
   void parseNodeFromeBuffer(node_info *node);
 
+  //解析点云数据包头
+  result_t parseHeader(
+    uint8_t &zero, 
+    uint32_t &headPos, 
+    uint32_t timeout = DEFAULT_TIMEOUT / 2);
+  //解析点云数据并判断带不带强度信息
+  virtual result_t getIntensityFlag();
+
  private:
   /// package sample bytes
   int PackageSampleBytes;
   /// serial port
   ChannelDevice *_serial;
-  /// tranformer type
-  uint8_t m_TranformerType;
-//  bool isSupportMotorDtrCtrl;
   /// sampling inteval
   uint32_t trans_delay;
   /// sampling rate
@@ -601,11 +599,11 @@ class YDlidarDriver : public DriverInterface {
   int sample_rate;
 
   /// has intensity protocol package
-  node_package package;
+  tri_node_package2 package;
   /// TOF Lidar has intensity protocol package
   tof_node_package tof_package;
   /// non-intensity protocol package
-  node_packages packages;
+  tri_node_package packages;
 
   float IntervalSampleAngle;
   float IntervalSampleAngle_LastPackage;
@@ -623,7 +621,7 @@ class YDlidarDriver : public DriverInterface {
   uint16_t LastSampleAngleCal;
   bool CheckSumResult;
   uint16_t Valu8Tou16;
-  uint8_t package_CT;
+  uint8_t ct;
   uint8_t nowPackageNum;
   uint8_t package_Sample_Num;
 
@@ -633,21 +631,20 @@ class YDlidarDriver : public DriverInterface {
   int         asyncRecvPos;
   uint16_t    async_size;
 
-  //singleChannel
-  device_info info_;
   device_health health_;
   lidar_ans_header header_;
   uint8_t  *headerBuffer;
-  uint8_t  *infoBuffer;
   uint8_t  *healthBuffer;
-  bool     get_device_info_success;
-  bool     get_device_health_success;
+  bool get_device_health_success;
 
   int package_index;
   bool has_package_error;
   uint32_t m_heartbeat_ts;
   uint8_t m_BlockRevSize;
 
+  uint32_t m_dataPos = 0; //记录当前解析到的数据的位置（解析是否带强度信息专用）
+  uint64_t stamp = 0; //时间戳
+  bool hasStamp = true; //是否有时间戳数据
 };
 
 }// namespace ydlidar
