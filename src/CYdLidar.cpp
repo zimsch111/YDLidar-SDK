@@ -562,7 +562,7 @@ bool CYdLidar::doProcessSimple(LaserScan &outscan)
   outscan.points.clear();
 
   // Fill in scan data:
-  if (IS_OK(op_result))
+  if (IS_OK(op_result) && count)
   {
     int offsetSize = 0;
 
@@ -705,7 +705,8 @@ bool CYdLidar::doProcessSimple(LaserScan &outscan)
         if (isTOFLidar(m_LidarType) || 
           isNetTOFLidar(m_LidarType) ||
           isGSLidar(m_LidarType) ||
-          isSDMLidar(m_LidarType))
+          isSDMLidar(m_LidarType) ||
+          isDTSLidar(m_LidarType))
         {
           range = static_cast<float>(global_nodes[i].dist / 1000.f);
         }
@@ -730,7 +731,8 @@ bool CYdLidar::doProcessSimple(LaserScan &outscan)
             scanfrequency = global_nodes[i].scanFreq / 10.0 + 3.0;
           }
         }
-        else if (isTEALidar(lidar_model)) //TEA雷达转速范围10~30，无缩放
+        else if (isTEALidar(lidar_model) ||
+          isGSLidar(m_LidarType)) //TEA雷达转速范围10~30，无缩放
         {
           scanfrequency = global_nodes[i].scanFreq; 
         }
@@ -802,15 +804,11 @@ bool CYdLidar::doProcessSimple(LaserScan &outscan)
   }
   else
   {
-    if (IS_FAIL(op_result))
+    // if (lidarPtr->getDriverError() != NoError)
     {
-      // Error? Retry connection
-    }
-
-    if (lidarPtr->getDriverError() != NoError)
-    {
-      fprintf(stderr, "[YDLIDAR ERROR]: %s\n",
-              DriverInterface::DescribeDriverError(lidarPtr->getDriverError()));
+      fprintf(stderr, "[YDLIDAR ERROR]: %d %s\n",
+        op_result,
+        DriverInterface::DescribeDriverError(lidarPtr->getDriverError()));
       fflush(stderr);
     }
 
@@ -1305,8 +1303,10 @@ bool CYdLidar::calcSampleRate(int count, double scan_time)
     m_PointTime = 1e9 / (m_SampleRate * 1000);
     lidarPtr->setPointTime(m_PointTime);
     if (!m_SingleChannel)
-      m_FixedSize = m_SampleRate * 1000 / (m_ScanFrequency - 0.1);
+      // m_FixedSize = m_SampleRate * 1000 / (m_ScanFrequency - 0.1); //不知转速为何要减少0.1
+      m_FixedSize = m_SampleRate * 1000 / (m_ScanFrequency);
     
+    printf("[YDLIDAR] Scan Frequency: %.02fHz\n", m_ScanFrequency);
     if (!isSDMLidar(m_LidarType)) //非SDM雷达才打印Fixed Size
       printf("[YDLIDAR] Fixed Size: %d\n", m_FixedSize);
     printf("[YDLIDAR] Sample Rate: %.02fK\n", m_SampleRate);
@@ -1589,8 +1589,10 @@ bool CYdLidar::checkScanFrequency()
     if (IS_OK(ans))
     {
       frequency = _scan_frequency.frequency / 100.f;
+      if (isTOFLidar(m_LidarType)) //TG雷达转速虚高0.4需要减去还原真实转速
+        frequency -= 0.4;
       hz = m_ScanFrequency - frequency;
-
+      printf("[YDLIDAR] Current scan frequency: %.02fHz\n", frequency);
       if (hz > 0)
       {
         //大调速
@@ -1637,6 +1639,8 @@ bool CYdLidar::checkScanFrequency()
   if (IS_OK(ans))
   {
     frequency = _scan_frequency.frequency / 100.0f;
+    if (isTOFLidar(m_LidarType)) //TG雷达转速虚高0.4需要减去还原真实转速
+        frequency -= 0.4;
     m_ScanFrequency = frequency;
   }
 
